@@ -541,4 +541,36 @@ vows
       }
     }
   })
+  .addBatch({
+    "Prototype Pollution, CVE-2023-26136": {
+      topic: function () {
+        var jar = new CookieJar(null, { rejectPublicSuffixes: false });
+        
+        // Attempt to pollute the prototype
+        jar.setCookieSync(
+          "polluted=true; Domain=__proto__; Path=/notauth",
+          "https://__proto__/admin"
+        );
+        
+        // Set a normal cookie
+        jar.setCookieSync(
+          "normal=cookie; Domain=example.com; Path=/notauth",
+          "https://example.com/"
+        );
+        
+        return jar;
+      },
+      "doesn't pollute Object prototype": function (jar) {
+        var testObj = jar.getCookiesSync("https://__proto__/admin/notauth");
+        // Only undefined if pollution attempt failed, otherwise would return the polluted cookie
+        assert.strictEqual(testObj["/notauth"], undefined);
+      },
+      "maintains normal cookie functionality": function (jar) {
+        var cookies = jar.getCookiesSync("https://example.com/notauth");
+        assert.strictEqual(cookies.length, 1);
+        assert.strictEqual(cookies[0].key, "normal");
+        assert.strictEqual(cookies[0].value, "cookie");
+      }
+    }
+  })
   .export(module);
